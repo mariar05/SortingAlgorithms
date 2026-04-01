@@ -1,0 +1,268 @@
+import random
+import time
+import csv
+
+def bubble_sort(arr):
+    n = len(arr)
+    a = arr.copy()
+
+    for i in range(n):
+        swapped = False
+        for j in range(0, n - i - 1):
+            if a[j] > a[j + 1]:
+                a[j], a[j + 1] = a[j + 1], a[j]
+                swapped = True
+        if not swapped:
+            break
+
+    return a
+
+
+def insertion_sort(arr):  # sortare prin insertie
+    a = arr.copy()
+
+    for i in range(1, len(a)):
+        key = a[i]
+        j = i - 1
+
+        while j >= 0 and a[j] > key:
+            a[j + 1] = a[j]
+            j -= 1
+
+        a[j + 1] = key
+
+    return a
+
+
+def selection_sort(arr):  # sortare prin selectie
+    a = arr.copy()
+    n = len(a)
+
+    for i in range(n):
+        min_index = i
+
+        for j in range(i + 1, n):
+            if a[j] < a[min_index]:
+                min_index = j
+
+        a[i], a[min_index] = a[min_index], a[i]
+
+    return a
+
+
+def merge_sort(arr):  # sortare prin interclasare
+    if len(arr) <= 1:
+        return arr.copy()
+
+    mid = len(arr) // 2
+    left = merge_sort(arr[:mid])
+    right = merge_sort(arr[mid:])
+
+    return merge(left, right)
+
+
+def merge(left, right):
+    result = []
+    i = j = 0
+
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            result.append(left[i])
+            i += 1
+        else:
+            result.append(right[j])
+            j += 1
+
+    result.extend(left[i:])
+    result.extend(right[j:])
+
+    return result
+
+
+def quick_sort(arr):  # sortare rapida
+    a = arr.copy()
+    _quick_sort(a, 0, len(a) - 1)
+    return a
+
+
+def _quick_sort(a, low, high):
+    while low < high:
+        left_end, right_start = partition_three_way(a, low, high)
+
+        if (left_end - low) < (high - right_start):
+            _quick_sort(a, low, left_end - 1)
+            low = right_start + 1
+        else:
+            _quick_sort(a, right_start + 1, high)
+            high = left_end - 1
+
+
+def partition_three_way(a, low, high):
+    mid = (low + high) // 2
+
+    if a[low] > a[mid]:
+        a[low], a[mid] = a[mid], a[low]
+    if a[low] > a[high]:
+        a[low], a[high] = a[high], a[low]
+    if a[mid] > a[high]:
+        a[mid], a[high] = a[high], a[mid]
+
+    pivot = a[mid]
+    left = low
+    i = low
+    right = high
+
+    while i <= right:
+        if a[i] < pivot:
+            a[left], a[i] = a[i], a[left]
+            left += 1
+            i += 1
+        elif a[i] > pivot:
+            a[i], a[right] = a[right], a[i]
+            right -= 1
+        else:
+            i += 1
+
+    return left, right
+
+
+# Generatoare de liste
+
+
+def generate_random_list(n, low=0, high=100000):
+    return [random.randint(low, high) for _ in range(n)]
+
+
+def generate_sorted_list(n, low=0, high=100000):
+    arr = generate_random_list(n, low, high)
+    return sorted(arr)
+
+
+def generate_reverse_sorted_list(n, low=0, high=100000):
+    arr = generate_random_list(n, low, high)
+    return sorted(arr, reverse=True)
+
+
+def generate_almost_sorted_list(n, swap_fraction=0.05, low=0, high=100000):
+    arr = generate_sorted_list(n, low, high)
+
+    num_swaps = max(1, int(n * swap_fraction))
+    for _ in range(num_swaps):
+        i = random.randint(0, n - 1)
+        j = random.randint(0, n - 1)
+        arr[i], arr[j] = arr[j], arr[i]
+
+    return arr
+
+
+def generate_flat_list(n, distinct_values=5):
+    values = [random.randint(0, 1000) for _ in range(distinct_values)]
+    return [random.choice(values) for _ in range(n)]
+
+
+
+def measure_average_time(sort_function, arr, repeats):
+    total_time = 0.0
+
+    for _ in range(repeats):
+        start = time.perf_counter()
+        result = sort_function(arr)
+        end = time.perf_counter()
+
+        if result != sorted(arr):
+            raise ValueError(f"Sortare incorecta: {sort_function.__name__}")
+
+        total_time += (end - start)
+
+    return total_time / repeats
+
+
+def should_skip(algorithm_name, n):
+    slow_algorithms = {"Bubble", "Insertion", "Selection"}
+
+    if algorithm_name in slow_algorithms and n > 10000:
+        return True
+
+    return False
+
+
+def get_repeats(n):
+    if n <= 100:
+        return 50
+    elif n <= 1000:
+        return 10
+    else:
+        return 5
+
+
+def run_benchmark():
+    sorting_algorithms = {
+        "Bubble": bubble_sort,
+        "Insertion": insertion_sort,
+        "Selection": selection_sort,
+        "Merge": merge_sort,
+        "Quick": quick_sort
+    }
+
+    generators = {
+        "Random": generate_random_list,
+        "Sorted": generate_sorted_list,
+        "Reverse Sorted": generate_reverse_sorted_list,
+        "Almost Sorted": generate_almost_sorted_list,
+        "Flat": generate_flat_list
+    }
+
+    sizes = [10, 20, 50, 100, 500, 1000, 5000, 10000]
+    results = []
+
+    for n in sizes:
+        print(f"\n==============================")
+        print(f"Dimensiune lista: {n}\n")
+
+        for list_type, generator_func in generators.items():
+            print(f"\nTip lista: {list_type}")
+
+            arr = generator_func(n)
+            repeats = get_repeats(n)
+
+            for algorithm_name, algorithm_func in sorting_algorithms.items():
+                if should_skip(algorithm_name, n):
+                    print(f"{algorithm_name}: SKIPPED")
+                    results.append([algorithm_name, list_type, n, "SKIPPED"])
+                    continue
+
+                avg_time = measure_average_time(algorithm_func, arr, repeats)
+                print(f"{algorithm_name}: {avg_time:.8f} sec")
+
+                results.append([algorithm_name, list_type, n, avg_time])
+
+    return results
+
+
+def save_results_to_csv(results, filename="rezultate.csv"):
+    with open(filename, mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Algoritm", "Tip Lista", "Dimensiune", "Timp Mediu"])
+
+        previous_size = None
+        previous_list_type = None
+
+        for row in results:
+            current_list_type = row[1]
+            current_size = row[2]
+
+            if (
+                previous_size is not None
+                and (current_size != previous_size or current_list_type != previous_list_type)
+            ):
+                file.write("\n")
+
+            writer.writerow(row)
+            previous_size = current_size
+            previous_list_type = current_list_type
+
+
+if __name__ == "__main__":
+    results = run_benchmark()
+    save_results_to_csv(results, "rezultate.csv")
+    print("\nRezultatele au fost salvate in rezultate.csv")
