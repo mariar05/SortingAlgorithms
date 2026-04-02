@@ -1,6 +1,7 @@
 import random
 import time
 import csv
+from multiprocessing import Process, Queue, freeze_support
 
 def bubble_sort(arr):
     n = len(arr)
@@ -129,21 +130,21 @@ def partition_three_way(a, low, high):
 # Generatoare de liste
 
 
-def generate_random_list(n, low=0, high=100000):
+def generate_random_list(n, low=-100000, high=100000):
     return [random.randint(low, high) for _ in range(n)]
 
 
-def generate_sorted_list(n, low=0, high=100000):
+def generate_sorted_list(n, low=-100000, high=100000):
     arr = generate_random_list(n, low, high)
     return sorted(arr)
 
 
-def generate_reverse_sorted_list(n, low=0, high=100000):
+def generate_reverse_sorted_list(n, low=-100000, high=100000):
     arr = generate_random_list(n, low, high)
     return sorted(arr, reverse=True)
 
 
-def generate_almost_sorted_list(n, swap_fraction=0.05, low=0, high=100000):
+def generate_almost_sorted_list(n, swap_fraction=0.05, low=-100000, high=100000):
     arr = generate_sorted_list(n, low, high)
 
     num_swaps = max(1, int(n * swap_fraction))
@@ -156,14 +157,13 @@ def generate_almost_sorted_list(n, swap_fraction=0.05, low=0, high=100000):
 
 
 def generate_flat_list(n, distinct_values=5):
-    values = [random.randint(0, 1000) for _ in range(distinct_values)]
+    values = [random.randint(-1000, 1000) for _ in range(distinct_values)]
     return [random.choice(values) for _ in range(n)]
 
 
 
 def measure_average_time(sort_function, arr, repeats):
     total_time = 0.0
-
     for _ in range(repeats):
         start = time.perf_counter()
         result = sort_function(arr)
@@ -177,20 +177,40 @@ def measure_average_time(sort_function, arr, repeats):
     return total_time / repeats
 
 
-def should_skip(algorithm_name, n):
-    slow_algorithms = {"Bubble", "Insertion", "Selection"}
+def _measure_average_time_worker(sort_function, arr, repeats, queue):
+    try:
+        average_time = measure_average_time(sort_function, arr, repeats)
+        queue.put(("ok", average_time))
+    except Exception as exc:
+        queue.put(("error", str(exc)))
 
-    if algorithm_name in slow_algorithms and n > 10000:
-        return True
 
-    return False
+def measure_average_time_with_timeout(sort_function, arr, repeats, timeout_seconds=120):
+    queue = Queue()
+    process = Process(target=_measure_average_time_worker, args=(sort_function, arr, repeats, queue))
+    process.start()
+    process.join(timeout_seconds)
+
+    if process.is_alive():
+        process.terminate()
+        process.join()
+        return "timeout", None
+
+    if queue.empty():
+        return "error", "Nu s-a primit rezultat din proces."
+
+    status, value = queue.get()
+    if status == "ok":
+        return "ok", value
+
+    return "error", value
 
 
 def get_repeats(n):
     if n <= 100:
-        return 5
+        return 10
     elif n <= 1000:
-        return 2
+        return 5
     else:
         return 2
 
@@ -215,6 +235,7 @@ def run_benchmark():
     sizes = [10, 20, 50, 100, 500, 1000, 5000, 10000, 100000]
     results = []
     generated_lists = []
+    timeout_seconds = 120
 
     for n in sizes:
         print(f"\n==============================")
@@ -228,15 +249,24 @@ def run_benchmark():
             repeats = get_repeats(n)
 
             for algorithm_name, algorithm_func in sorting_algorithms.items():
-                if should_skip(algorithm_name, n):
-                    print(f"{algorithm_name}: SKIPPED")
+                status, result = measure_average_time_with_timeout(
+                    algorithm_func,
+                    arr,
+                    repeats,
+                    timeout_seconds,
+                )
+
+                if status == "timeout":
+                    print(f"{algorithm_name}: SKIPPED (a depasit {timeout_seconds} sec)")
                     results.append([algorithm_name, list_type, n, "SKIPPED"])
                     continue
 
-                avg_time = measure_average_time(algorithm_func, arr, repeats)
-                print(f"{algorithm_name}: {avg_time:.8f} sec")
+                if status == "error":
+                    raise ValueError(result)
 
-                results.append([algorithm_name, list_type, n, avg_time])
+                print(f"{algorithm_name}: {result:.8f} sec")
+
+                results.append([algorithm_name, list_type, n, result])
 
     return results, generated_lists
 
@@ -279,6 +309,7 @@ def save_generated_lists(generated_lists, filename="liste_generate.csv"):
 
 
 if __name__ == "__main__":
+    freeze_support()
     results, generated_lists = run_benchmark()
     save_results_to_csv(results, "rezultate.csv")
     save_generated_lists(generated_lists, "liste_generate.csv")
