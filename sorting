@@ -188,11 +188,11 @@ def should_skip(algorithm_name, n):
 
 def get_repeats(n):
     if n <= 100:
-        return 50
-    elif n <= 1000:
-        return 10
-    else:
         return 5
+    elif n <= 1000:
+        return 2
+    else:
+        return 2
 
 
 def run_benchmark():
@@ -214,6 +214,7 @@ def run_benchmark():
 
     sizes = [10, 20, 50, 100, 500, 1000, 5000, 10000]
     results = []
+    generated_lists = []
 
     for n in sizes:
         print(f"\n==============================")
@@ -223,6 +224,7 @@ def run_benchmark():
             print(f"\nTip lista: {list_type}")
 
             arr = generator_func(n)
+            generated_lists.append([list_type, n, arr.copy()])
             repeats = get_repeats(n)
 
             for algorithm_name, algorithm_func in sorting_algorithms.items():
@@ -236,7 +238,7 @@ def run_benchmark():
 
                 results.append([algorithm_name, list_type, n, avg_time])
 
-    return results
+    return results, generated_lists
 
 
 def save_results_to_csv(results, filename="rezultate.csv"):
@@ -262,7 +264,22 @@ def save_results_to_csv(results, filename="rezultate.csv"):
             previous_list_type = current_list_type
 
 
+def save_generated_lists(generated_lists, filename="liste_generate.csv"):
+    with open(filename, mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Tip Lista", "Dimensiune", "Lista"])
+
+        for index, row in enumerate(generated_lists):
+            list_type, size, arr = row
+            writer.writerow([list_type, size, ", ".join(map(str, arr))])
+
+            if index != len(generated_lists) - 1:
+                writer.writerow([])
+
+
+
 if __name__ == "__main__":
-    results = run_benchmark()
+    results, generated_lists = run_benchmark()
     save_results_to_csv(results, "rezultate.csv")
-    print("\nRezultatele au fost salvate in rezultate.csv")
+    save_generated_lists(generated_lists, "liste_generate.csv")
+    print("\nRezultate salvate in rezultate.csv")
